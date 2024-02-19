@@ -1,6 +1,6 @@
 ; Build params: ------------------------------------------------------------------------------
 
-CHEATS	set 0
+CHEATS	set 1
 
 ; Constants: ---------------------------------------------------------------------------------
 	MD_PLUS_OVERLAY_PORT:			equ $0003F7FA
@@ -9,8 +9,15 @@ CHEATS	set 0
 
 	OFFSET_RESET_VECTOR:			equ $4
 	OFFSET_LEVEL_SELECT_HANDLER:	equ $0000B678
+	OFFSET_MUSIC_TIMER_1:			equ $0000FE64
+	OFFSET_MUSIC_TIMER_2:			equ $00010254
 	OFFSET_DAMAGE_HANDLER:			equ	$00021E1A
+	OFFSET_DAMAGE_HANDLER2:			equ	$00021EA0
+	OFFSET_SOUND_DRIVER_HANDLER:    equ $000697A0
 	OFFSET_COMMAND_HANLDER:			equ $00069D22
+
+	RAM_OFFSET_CDDA_PLAYING:		equ	$FFFFFF00
+	RAM_OFFSET_CDDA_COUNTER:		equ $FFFFFF02
 
 	RESET_VECTOR_ORIGINAL:			equ $00000320
 
@@ -22,6 +29,17 @@ CHEATS	set 0
 
 ; Overrides: ---------------------------------------------------------------------------------
 
+	org OFFSET_MUSIC_TIMER_1 ; Comparator before intro
+	move.b	(RAM_OFFSET_CDDA_COUNTER+1).l,D0
+	cmpi.b	#$C0,D0
+
+	org OFFSET_MUSIC_TIMER_2 ;Comparator after intro
+	move.b	(RAM_OFFSET_CDDA_COUNTER+1).l,D0
+	cmpi.b	#$60,D0
+
+	org OFFSET_SOUND_DRIVER_HANDLER
+	jsr CDDA_COUNTER
+
 	org OFFSET_RESET_VECTOR
 	dc.l DETOUR_RESET_VECTOR
 
@@ -32,6 +50,9 @@ CHEATS	set 0
 		org OFFSET_DAMAGE_HANDLER									; Disables most damage
 		rts
 
+		org OFFSET_DAMAGE_HANDLER2
+		jmp $21EBA
+
 		org OFFSET_LEVEL_SELECT_HANDLER
 		rept 4
 			nop														; Allows selecting a level by pressing A when paused
@@ -41,6 +62,15 @@ CHEATS	set 0
 ; Detours: -----------------------------------------------------------------------------------
 
 	org $000FF2B0
+CDDA_COUNTER:
+	cmpi.b	#$01,(RAM_OFFSET_CDDA_PLAYING)
+	bne		.no_further_counting
+	addi.w	#$01,(RAM_OFFSET_CDDA_COUNTER)
+.no_further_counting
+	lea		$fff800,A6
+	rts
+
+
 
 COMMAND_HANDLER_DETOUR:
 	movem.l	D0,-(A7)
@@ -59,16 +89,20 @@ COMMAND_HANDLER_DETOUR:
 	lsl.w	#$8,D2
 	or.b	D0,D2
 	jsr		WRITE_MD_PLUS_FUNCTION
+	move.b	#$01,(RAM_OFFSET_CDDA_PLAYING)
+	clr.w	(RAM_OFFSET_CDDA_COUNTER)
 	move.l	#TRACK_STOP,(A7)									; Override track id we left on the stack with the stop command
 	move.b	#POINTER_BASE_OFFSET+TRACK_STOP,D1					; D1 at this point contains the pointer for the current track id. For the pointer value the track ids always have a base offset of $81.
 	jmp		RETURN_FROM_DETOUR_LOGIC							; For TRACK_STOP ($7E) this would result in a value of $FF. This is necessary to mute the original music.
 	
 CDDA_STOP_LOGIC
+	move.b	#$00,(RAM_OFFSET_CDDA_PLAYING)
 	move.w	#$1300,D2
 	jsr		WRITE_MD_PLUS_FUNCTION
 	jmp		RETURN_FROM_DETOUR_LOGIC
 
 CDDA_FADE_OUT_LOGIC
+	move.b	#$00,(RAM_OFFSET_CDDA_PLAYING)
 	move.w	#$1396,D2											; Fadeout with 150 sectors (2 seconds)
 	jsr		WRITE_MD_PLUS_FUNCTION
 	jmp		RETURN_FROM_DETOUR_LOGIC
