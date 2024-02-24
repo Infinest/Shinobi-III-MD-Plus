@@ -47,7 +47,7 @@ CHEATS	set 0
 	jsr	COMMAND_HANDLER_DETOUR
 
 	if	CHEATS
-		org OFFSET_DAMAGE_HANDLER									; Disables most damage
+		org OFFSET_DAMAGE_HANDLER								; Disables most damage
 		rts
 
 		org OFFSET_DAMAGE_HANDLER2
@@ -55,7 +55,7 @@ CHEATS	set 0
 
 		org OFFSET_LEVEL_SELECT_HANDLER
 		rept 4
-			nop														; Allows selecting a level by pressing A when paused
+			nop													; Allows selecting a level by pressing A when paused
 		endr
 	endif
 
@@ -63,14 +63,12 @@ CHEATS	set 0
 
 	org $000FF2B0
 CDDA_COUNTER:
-	cmpi.b	#$01,(RAM_OFFSET_CDDA_PLAYING)
-	bne		.no_further_counting
-	addi.w	#$01,(RAM_OFFSET_CDDA_COUNTER)
+	cmpi.b	#$01,(RAM_OFFSET_CDDA_PLAYING)						; Implement counter for how long CDDA track has been playing.
+	bne		.no_further_counting								; This is necessary because the intro sequence is synced to the FM music.
+	addi.w	#$01,(RAM_OFFSET_CDDA_COUNTER)						; To replace this logic, we use this counter value. See OFFSET_MUSIC_TIMER_1 & OFFSET_MUSIC_TIMER_2
 .no_further_counting
 	lea		$fff800,A6
 	rts
-
-
 
 COMMAND_HANDLER_DETOUR:
 	movem.l	D0,-(A7)
