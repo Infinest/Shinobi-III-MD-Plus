@@ -1,6 +1,7 @@
 ; Build params: ------------------------------------------------------------------------------
 
-CHEATS	set 0
+CHEATS					set 0
+SHINOBI_III_ENHANCED 	set	0
 
 ; Constants: ---------------------------------------------------------------------------------
 	MD_PLUS_OVERLAY_PORT:			equ $0003F7FA
@@ -59,9 +60,14 @@ CHEATS	set 0
 		endr
 	endif
 
+	if SHINOBI_III_ENHANCED
+		org $FF66C
+		dc.b $60
+	endif
+
 ; Detours: -----------------------------------------------------------------------------------
 
-	org $000FF2B0
+	org $00100000
 CDDA_COUNTER:
 	cmpi.b	#$01,(RAM_OFFSET_CDDA_PLAYING)						; Implement counter for how long CDDA track has been playing.
 	bne		.no_further_counting								; This is necessary because the intro sequence is synced to the FM music.
